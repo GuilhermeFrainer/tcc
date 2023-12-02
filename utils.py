@@ -37,7 +37,7 @@ def parse_date(s: str) -> str:
     return f"20{year}-{month:02d}-01"
 
 
-def transform_dataframe(original_df: pd.DataFrame, f) -> pd.DataFrame:
+def transform_dataframe(df: pd.DataFrame, f, skip=[0]) -> pd.DataFrame:
     """
     Cria novo DataFrame com valores do 'original_dataframe' transformados
     pela função 'f'
@@ -45,11 +45,14 @@ def transform_dataframe(original_df: pd.DataFrame, f) -> pd.DataFrame:
     Parameters
     ----------
 
-    original_df: pd.DataFrame
+    df: pd.DataFrame
         DataFrame com os valores originais
 
     f: Callable
         Função que realiza transformação. Deve ter "signature" f(df, i, col_name)
+
+    skip: list of int, default=[0]
+        Lista de linhas a pular. Necessário devido à mudança nos graus de integração
 
     Returns
     -------
@@ -58,27 +61,38 @@ def transform_dataframe(original_df: pd.DataFrame, f) -> pd.DataFrame:
     """
     # Cria dicionário de listas vazias com nomes de colunas
     delta_dict = {}
-    for col_name, _ in original_df.items():
+    for col_name, _ in df.items():
         if col_name == "month":
             continue
-        delta_dict[col_name] = [0] # Coloca zeros na primeira linha
+        # Coloca lixo na primeira linha
+        # Vai ser deletado de qualquer forma, então não importa
+        delta_dict[col_name] = [0 for _ in range(len(skip))]
 
     # Popula novo DataFrame com a diferença dos dados no primeiro
-    for i, row in original_df.iterrows():
+    for i, row in df.iterrows():
         # Pula primeira linha
-        if i == 0:
+        if i in skip:
             continue
         for col_name, _ in row.items():
             # Ignora coluna de meses
             if col_name == "month":
                 continue
             # Salva diferenças em dicionário
-            delta_dict[col_name].append(f(original_df, i, col_name))
+            delta_dict[col_name].append(f(df, i, col_name))
 
-    return pd.DataFrame(delta_dict)
+    delta_df = pd.DataFrame(delta_dict)
+
+    # Usa coluna de meses como índice
+    tmp = df['month']
+    delta_df['month'] = tmp
+    # Remove as primeiras linhas, pois não contêm valores
+    delta_df = delta_df.iloc[skip[-1] + 1:]
+    delta_df = delta_df.set_index('month')
+
+    return delta_df
 
 
-def save_tranformed_df(filepath: str, df: pd.DataFrame, f) -> None:
+def save_tranformed_df(filepath: str, df: pd.DataFrame, f, skip=[0]) -> None:
     """
     Salva arquivo csv com valores de 'df' transformados segundo função 'f'
 
@@ -93,20 +107,14 @@ def save_tranformed_df(filepath: str, df: pd.DataFrame, f) -> None:
     f: Callable
         Função que realiza transformação. Deve ter "signature" f(df, i, col_name)
 
+    skip: list of int, default=[0]
+        Lista de linhas a pular. Necessário devido à mudança nos graus de integração
+
     Returns
     -------
     None
     """
 
-    delta_df = transform_dataframe(df, f)
-
-    # Usa coluna de meses como índice
-    tmp = df['month']
-    delta_df['month'] = tmp
-    # Remove primeira linha, pois calcula a diferença, então não faria sentido ter
-    # o primeiro valor
-    delta_df = delta_df.drop([0])
-    delta_df = delta_df.set_index('month')
-
+    delta_df = transform_dataframe(df, f, skip=skip)
     delta_df.to_csv(filepath, sep=";", decimal=",", index_label='month')
 
