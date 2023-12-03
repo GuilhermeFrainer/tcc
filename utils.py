@@ -1,4 +1,5 @@
 import pandas as pd
+from sktime.param_est.stationarity import StationarityKPSS
 
 
 def parse_date(s: str) -> str:
@@ -117,4 +118,59 @@ def save_tranformed_df(filepath: str, df: pd.DataFrame, f, skip=[0]) -> None:
 
     delta_df = transform_dataframe(df, f, skip=skip)
     delta_df.to_csv(filepath, sep=";", decimal=",", index_label='month')
+
+
+def test_for_stationarity_kpss(df: pd.DataFrame) -> dict:
+    """
+    Realiza teste de estacionariedade KPSS coluna a coluna em 'df'.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        DataFrame em que se realizará o teste de estacionariedade
+
+    Returns
+    -------
+    dict:
+        Dicionário que contém resultados do teste. Salvo no formato 'coluna': 'resultado'.
+        Resultado é instância da classe 'StationarityKPSS'.
+    """
+
+    results = {}
+    for col in df.columns:
+        kpss_tester = StationarityKPSS()
+        X = df[col]
+        results[col] = kpss_tester.fit(X)
+    return results
+
+
+def print_results(results: dict) -> None:
+    """
+    Printa resultados de teste de estacionariedade. Presume-se que dicionário seja da forma
+    {'coluna': 'resultado'}, em que resultado é instância da classe 'StationaryKPSS'.
+
+    Parameters
+    ----------
+    results: dict
+        Dicionário contendo resultados do teste.
+    """
+    for k, v in results.items():
+        print(k)
+        print(f"Stationary: {v.stationary_}")
+        print(f"P value: {v.pvalue_}")
+
+
+def print_stationary_series(results: dict) -> None:
+    """
+    Printa séries estacionárias. Presume-se que dicionário seja da forma
+    {'coluna': 'resultado'}, em que resultado é instância da classe 'StationaryKPSS'.
+
+    Parameters
+    ----------
+    results: dict
+        Dicionário contendo resultados do teste.
+    """
+    for k, v in results.items():
+        if v.stationary_:
+            print(k)
 
