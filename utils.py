@@ -38,6 +38,27 @@ def parse_date(s: str) -> str:
     return f"20{year}-{month:02d}-01"
 
 
+def index_to_datetime(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Converte coluna de meses do DataFrame para formato reconhecido pelo sktime.
+
+    Parameters
+    ----------
+
+    df: pd.DataFrame
+        DataFrame original. Precisa ter coluna 'month' com datas no formato mmm/yy.
+
+    Returns
+    -------
+    
+    pd.DataFrame
+        DataFrame com datas em formato reconhecido pelo sktime.
+    """
+    df['month'] = df['month'].map(parse_date)
+    df['month'] = pd.to_datetime(df['month'], format="%Y-%m-%d")
+    return df
+
+
 def transform_dataframe(df: pd.DataFrame, f, skip=[0]) -> pd.DataFrame:
     """
     Cria novo DataFrame com valores do 'original_dataframe' transformados
