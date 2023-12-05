@@ -55,8 +55,8 @@ def index_to_datetime(df: pd.DataFrame) -> pd.DataFrame:
         DataFrame com datas em formato reconhecido pelo sktime.
     """
     df['month'] = df['month'].map(parse_date)
-    df['month'] = pd.to_datetime(df['month'], format="%Y-%m-%d")
-    return df
+    df['month'] = pd.to_datetime(df['month'], format="%Y-%m")
+    return df.set_index('month')
 
 
 def transform_dataframe(df: pd.DataFrame, f, skip=[0]) -> pd.DataFrame:
