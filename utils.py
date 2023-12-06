@@ -1,4 +1,5 @@
 import pandas as pd
+import warnings
 from sktime.param_est.stationarity import StationarityKPSS
 
 
@@ -40,7 +41,30 @@ def parse_date(s: str) -> str:
 
 def index_to_datetime(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Converte coluna de meses do DataFrame para formato reconhecido pelo sktime.
+    (Deprecated) Converte coluna de meses do DataFrame para formato reconhecido pelo sktime.
+
+    Parameters
+    ----------
+
+    df: pd.DataFrame
+        DataFrame original. Precisa ter coluna 'month' com datas no formato mmm/yy.
+
+    Returns
+    -------
+    
+    pd.DataFrame
+        DataFrame com datas em formato reconhecido pelo sktime.
+    """
+    print("Teste")
+    warnings.warn("Utilize a função 'index_to_period'.", DeprecationWarning, stacklevel=2)
+    df['month'] = df['month'].map(parse_date)
+    df['month'] = pd.to_datetime(df['month'], format="%Y-%m")
+    return df.set_index('month')
+
+
+def index_to_period(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Converte coluna de meses do DataFrame para pd.PeriodIndex
 
     Parameters
     ----------
@@ -56,7 +80,9 @@ def index_to_datetime(df: pd.DataFrame) -> pd.DataFrame:
     """
     df['month'] = df['month'].map(parse_date)
     df['month'] = pd.to_datetime(df['month'], format="%Y-%m")
-    return df.set_index('month')
+    df = df.set_index('month')
+    df.index = df.index.to_period("M")
+    return df
 
 
 def transform_dataframe(df: pd.DataFrame, f, skip=[0]) -> pd.DataFrame:
