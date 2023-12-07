@@ -78,7 +78,8 @@ def index_to_period(df: pd.DataFrame) -> pd.DataFrame:
     pd.DataFrame
         DataFrame com datas em formato reconhecido pelo sktime.
     """
-    df['month'] = df['month'].map(parse_date)
+    if "/" in df['month'][0]:
+        df['month'] = df['month'].map(parse_date)
     df['month'] = pd.to_datetime(df['month'], format="%Y-%m")
     df = df.set_index('month')
     df.index = df.index.to_period("M")
