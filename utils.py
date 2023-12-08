@@ -80,7 +80,7 @@ def index_to_period(df: pd.DataFrame) -> pd.DataFrame:
     """
     if "/" in df['month'][0]:
         df['month'] = df['month'].map(parse_date)
-    df['month'] = pd.to_datetime(df['month'], format="%Y-%m")
+    df['month'] = pd.to_datetime(df['month'], format="ISO8601")
     df = df.set_index('month')
     df.index = df.index.to_period("M")
     return df
