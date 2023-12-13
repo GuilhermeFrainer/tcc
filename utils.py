@@ -33,9 +33,12 @@ def parse_date(s: str) -> str:
         'dez': 12,
     }
 
-    month, year = s.split("/")
+    try:
+        month, year = s.split("/")
+    # Caso não haja '/'
+    except ValueError:
+        return s
     month = month_dict[month]
-
     return f"20{year}-{month:02d}-01"
 
 
