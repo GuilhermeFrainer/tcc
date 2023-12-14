@@ -1,6 +1,109 @@
 import pandas as pd
 import warnings
 from sktime.param_est.stationarity import StationarityKPSS
+from sktime.forecasting.model_evaluation import evaluate
+from sktime.split import temporal_train_test_split, ExpandingWindowSplitter
+from sktime.forecasting.base import ForecastingHorizon
+
+
+def evaluate_pipeline(
+        forecaster,
+        df: pd.DataFrame,
+        steps_ahead=1,
+        test_size=79,
+):
+    """
+    Padroniza o processo repetitivo de chamar a função 'evaluate'
+
+    Parameters
+    ----------
+
+    forecaster: sktime BaseForecaster descendant (concrete forecaster) 
+        Forecaster a ser utilizado nas previsões
+    
+    df: pd.DataFrame
+        DataFrame com variáveis endógena e exógenas.
+        Presume que variável endógena esteja na coluna 'ipca'.
+
+    steps_ahead: int (default=1)
+        Número de passos à frente para prever.
+        
+    test_size: int (default=79)
+        Tamanho da amostra usada para testes.
+        Na prática, para os propósitos do TCC, vai ser sempre 79.
+
+    Returns
+    -------
+    y_train: pd.Series
+        Série do trecho da variável endógena usada para treinar o modelo
+
+    y_test: pd.Series
+        Série do trecho da variável endógena usada para testar o modelo
+
+    eval_df: pd.DataFrame
+        DataFrame retornado pela função 'evaluate'.
+    """
+    y, X = extract_X_and_y(df)
+    y_train, y_test, _, _ = temporal_train_test_split(y, X, test_size=test_size)
+    fh = ForecastingHorizon(steps_ahead, is_relative=True)
+    cv = ExpandingWindowSplitter(fh=fh, initial_window=y_train.size)
+    eval_df =  evaluate(
+        forecaster=forecaster,
+        cv=cv,
+        y=y,
+        X=X,
+        strategy="refit",
+        return_data=True
+    )
+    return y_train, y_test, eval_df
+
+
+def extract_y_pred(df: pd.DataFrame) -> pd.Series:
+    """
+    Extrai previsões do DataFrame retornado pela função 'evaluate' do sktime.
+    Necessário pois a função retorna as previsões formatadas de um jeito esquisito.
+
+    Parameters
+    ----------
+
+    df: pd.DataFrame
+        DataFrame retornado pela função 'evaluate' do sktime.
+        Função precisa ter sido chamada com o parâmetro 'return_data=True'.
+
+    Returns
+    -------
+    pd.Series
+        Série contendo apenas previsões.
+    """
+    y_pred = pd.Series([value[0] for _, value in df['y_pred'].items()])
+    period_list = [entry.index for entry in df['y_pred']]
+    period_array = pd.arrays.PeriodArray(period_list, freq="M")
+    period_list2 = [entry[0] for entry in period_array]
+    y_pred.index = pd.PeriodIndex(period_list2, freq="M")
+    return y_pred
+
+
+def extract_X_and_y(df: pd.DataFrame):
+    """
+    Separa variável dependente (ipca) de variáveis independentes.
+
+    Parameters
+    ----------
+
+    df: pd.DataFrame
+        DataFrame com coluna 'ipca'
+
+    Returns
+    -------
+    pd.Series
+        Série de y
+
+    pd.DataFrame
+        DataFrame com variáveis independentes
+    """
+    y = df['ipca']
+    X = df.drop(columns=['ipca'])
+    return y, X
 
 
 def parse_date(s: str) -> str:
@@ -142,6 +245,24 @@ def transform_dataframe(df: pd.DataFrame, f, skip=[0]) -> pd.DataFrame:
     delta_df = delta_df.set_index('month')
 
     return delta_df
+
+
+def read_and_change_index(path: str) -> pd.DataFrame:
+    """
+    Lê arquivo csv e retorna DataFrame com índice mudado por 'index_to_period'.
+
+    Parameters
+    ----------
+    path: str
+        Path para arquivo a ser lido
+
+    Returns
+    -------
+    pd.DataFrame:
+        DataFrame com índice no formato pd.PeriodIndex
+    """
+    df = pd.read_csv(path, sep=";", decimal=",", thousands=".")
+    return index_to_period(df)
 
 
 def save_tranformed_df(filepath: str, df: pd.DataFrame, f, skip=[0]) -> None:
