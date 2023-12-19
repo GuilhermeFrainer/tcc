@@ -1,4 +1,6 @@
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 import warnings
 from sktime.param_est.stationarity import StationarityKPSS
 from sktime.forecasting.model_evaluation import evaluate
@@ -143,6 +145,51 @@ def parse_date(s: str) -> str:
         return s
     month = month_dict[month]
     return f"20{year}-{month:02d}-01"
+
+
+def plot_series(*series, labels=None):
+    """
+    Serve para replicar a função 'plot_series' do sktime,
+    mas sem o problema de mudar a escala de cada série.
+
+    Parameters
+    ----------
+
+    series: pd.Series or iterable of pd.Series
+        Série ou lista de séries com os dados. Devem ter índice do tipo 'PeriodIndex'.
+
+    labels: list, default = None
+        Lista com labels que serão passados para a função do seaborn.
+        Deve ser do mesmo tamanho que a lista de séries.
+    
+    Returns
+    -------
+
+    fig: plt.Figure
+        Figura do matplotlib.
+    
+    ax: plt.Axis
+        Eixo do matplotlib.
+    """
+    # Cria lista com Nones
+    if labels == None:
+        labels = [None for _ in series]
+    elif len(labels) != len(series):
+        raise ValueError("O número de labels deve ser igual ao número de séries.")
+
+    # Define cores
+    sns.color_palette("colorblind")
+
+    # Cria eixo no padrão do sktime
+    fig, ax = plt.subplots(1, figsize=plt.figaspect(0.25))
+    
+    for s, l in zip(series, labels):
+        if isinstance(s, pd.DataFrame):
+            sns.lineplot(y=s.squeeze(), x=s.index.to_timestamp(), label=l, marker="o", ax=ax)
+        else:
+            sns.lineplot(y=s, x=s.index.to_timestamp(), label=l, marker="o", ax=ax)
+
+    return fig, ax
 
 
 def index_to_datetime(df: pd.DataFrame) -> pd.DataFrame:
