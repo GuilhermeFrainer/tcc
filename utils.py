@@ -42,8 +42,8 @@ def evaluate_pipeline(
     y_test: pd.Series
         Série do trecho da variável endógena usada para testar o modelo
 
-    eval_df: pd.DataFrame
-        DataFrame retornado pela função 'evaluate'.
+    y_pred: pd.DataFrame
+        Série de previsões extraída com a função 'extract_y_pred'.
     """
     y, X = extract_X_and_y(df)
     y_train, y_test, _, _ = temporal_train_test_split(y, X, test_size=test_size)
@@ -57,7 +57,8 @@ def evaluate_pipeline(
         strategy="refit",
         return_data=True
     )
-    return y_train, y_test, eval_df
+    y_pred = extract_y_pred(eval_df)
+    return y_train, y_test, y_pred
 
 
 def extract_y_pred(df: pd.DataFrame) -> pd.Series:
