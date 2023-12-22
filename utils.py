@@ -78,11 +78,13 @@ def extract_y_pred(df: pd.DataFrame) -> pd.Series:
     pd.Series
         Série contendo apenas previsões.
     """
-    y_pred = pd.Series([value[0] for _, value in df['y_pred'].items()])
+    y_pred = pd.Series([value.iloc[0] for _, value in df['y_pred'].items()])
     period_list = [entry.index for entry in df['y_pred']]
-    period_array = pd.arrays.PeriodArray(period_list, freq="M")
+    period_array = pd.arrays.PeriodArray(period_list, dtype=pd.PeriodDtype("M"))
     period_list2 = [entry[0] for entry in period_array]
     y_pred.index = pd.PeriodIndex(period_list2, freq="M")
+    y_pred.index.name = "month"
+    y_pred.name = "ipca" # Útil apenas no meu caso específico
     return y_pred
 
 
