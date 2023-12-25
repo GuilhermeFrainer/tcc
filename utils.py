@@ -239,6 +239,7 @@ def index_to_period(df: pd.DataFrame) -> pd.DataFrame:
     df['month'] = pd.to_datetime(df['month'], format="ISO8601")
     df = df.set_index('month')
     df.index = df.index.to_period("M")
+    df.index.name = "month"
     return df
 
 
