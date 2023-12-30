@@ -150,7 +150,7 @@ def parse_date(s: str) -> str:
     return f"20{year}-{month:02d}-01"
 
 
-def plot_series(*series, labels=None):
+def plot_series(*series, labels=None, figsize=plt.figaspect(0.25)):
     """
     Serve para replicar a função 'plot_series' do sktime,
     mas sem o problema de mudar a escala de cada série.
@@ -164,6 +164,9 @@ def plot_series(*series, labels=None):
     labels: list, default = None
         Lista com labels que serão passados para a função do seaborn.
         Deve ser do mesmo tamanho que a lista de séries.
+
+    figsize: default = plt.figaspect(0.25)
+        Parâmetro a ser passado para o matplotlib
     
     Returns
     -------
@@ -184,7 +187,7 @@ def plot_series(*series, labels=None):
     sns.color_palette("colorblind")
 
     # Cria eixo no padrão do sktime
-    fig, ax = plt.subplots(1, figsize=plt.figaspect(0.25))
+    fig, ax = plt.subplots(1, figsize=figsize)
     
     for s, l in zip(series, labels):
         if isinstance(s, pd.DataFrame):
