@@ -14,7 +14,8 @@ lasso = {
 rf = {
     'n_estimators': 1000,
     'max_features': 1.0,
-    'n_jobs': N_JOBS
+    'n_jobs': N_JOBS,
+    'criterion': 'absolute_error',
 }
 
 lgbm = {
@@ -23,4 +24,5 @@ lgbm = {
     'force_col_wise': True,
     'n_estimators': 1000,
     'learning_rate': 0.01,
+    'objective': 'regression_l1',
 }
