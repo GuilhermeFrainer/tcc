@@ -12,10 +12,10 @@ from sktime.forecasting.compose import RecursiveTabularRegressionForecaster
 
 
 def evaluate_pipeline(
-        forecaster,
-        df: pd.DataFrame,
-        steps_ahead=1,
-        test_size=79,
+    forecaster,
+    df: pd.DataFrame,
+    steps_ahead=1,
+    test_size=79,
 ):
     """
     Padroniza o processo repetitivo de chamar a função 'evaluate'
@@ -112,6 +112,94 @@ def extract_X_and_y(df: pd.DataFrame):
     y = df['ipca']
     X = df.drop(columns=['ipca'])
     return y, X
+
+
+def get_feat_df(
+    forecaster: RecursiveTabularRegressionForecaster,
+    df_columns: list[str],
+    estimator: str
+) -> pd.DataFrame:
+    """
+    Extrai importâncias dos do modelo e converte para 'DataFrame' legível.
+    Funciona para todos os estimadores no trabalho.
+    Essa função ficou uma bagunça. Já estou no final do TCC e não me importo tanto com beleza.
+    Daria para remover todas as subfunções.
+
+    Parameters
+    ----------
+
+    forecaster: RecursiveTabularRegressionForecaster
+        Forecaster gerado pelo `make_reduction`. Deve ser LGBM ou Random Forest.
+            
+    df_columns: list[str]
+        Lista de variáveis no 'DataFrame' usado para as previsões.
+        Retornado por `df.columns`.
+
+    estimator: {"lgbm", "random_forest", "lasso", "ridge"}
+        String indicando o estimador.
+        
+    Returns
+    -------
+
+    pd.DataFrame:
+        'DataFrame' com índices representando cada variável e valor representando a %
+        de ganho que se deve àquela variável.
+    """
+    def extract_feature_names(cryptic_var_names, df_var_names) -> list[str]:
+        translated_feature_names = []
+        for name in cryptic_var_names:
+            _, n = name.split('_')
+            n = int(n)
+            translated_feature_names.append(f"{df_var_names[n % 41]}_{int(n / 41)}")
+        return translated_feature_names
+    
+
+    def get_feature_importance_dict(cryptic_feat_importances, feat_names):
+        return {name: importance for name, importance in zip(feat_names, cryptic_feat_importances)}
+    
+
+    def condense_feat_importances(var_names: list[str], feat_importances: dict[str, float]) -> pd.DataFrame:
+        # Cria dicionário com valor absoluto de importâncias para cada variável
+        # independente de lags
+        added_importances = {}
+        for feat in var_names:
+            added_importances[feat] = 0
+            for k, v in feat_importances.items():
+                if feat in k:
+                    added_importances[feat] += v
+        total = 0
+        for k, v in added_importances.items():
+            total += v
+
+        # Converte para dicionário de porcentagens
+        final_importances = {k: v / total for k, v in added_importances.items()}
+        final_importances = pd.DataFrame.from_dict(final_importances, orient='index')
+        final_importances.columns = [estimator]
+        final_importances = final_importances.sort_values(by=estimator, ascending=False)
+        return final_importances
+    
+
+    if estimator == "lgbm":
+        cryptic_var_names = forecaster.estimator_.booster_.feature_name()
+        cryptic_feat_importances = forecaster.estimator_.booster_.feature_importance(importance_type='gain')
+
+    elif estimator == "random_forest":
+        cryptic_var_names = [f"var_{i}" for i in range(forecaster.estimator_.feature_importances_.size)]
+        cryptic_feat_importances = forecaster.estimator_.feature_importances_
+
+    elif estimator in {"lasso", "ridge"}:
+        cryptic_var_names = [f"var_{i}" for i in range(forecaster.estimator_.coef_.size)]
+        cryptic_feat_importances = forecaster.estimator_.coef_
+
+    else:
+        raise ValueError(f"Tipo de estimador inválido: {estimator}. Deve ser lgbm, random_forest, lasso ou ridge.")
+
+    translated_feat_names = extract_feature_names(cryptic_var_names, df_columns)
+    translated_feat_importances = get_feature_importance_dict(
+        cryptic_feat_importances,
+        translated_feat_names
+    )
+    return condense_feat_importances(df_columns, translated_feat_importances)
 
 
 def parse_date(s: str) -> str:
@@ -405,12 +493,12 @@ def print_stationary_series(results: dict) -> None:
 
 
 def update_predict_loop(
-        forecaster: RecursiveTabularRegressionForecaster,
-        y: pd.Series,
-        X: pd.DataFrame,
-        fh: ForecastingHorizon,
-        starting_period: pd.Period = pd.Period('2017-02', freq='M')
-    ) -> pd.Series:
+    forecaster: RecursiveTabularRegressionForecaster,
+    y: pd.Series,
+    X: pd.DataFrame,
+    fh: ForecastingHorizon,
+    starting_period: pd.Period = pd.Period('2017-02', freq='M')
+) -> pd.Series:
     current_period = starting_period
     last_period = y.index[-1]
     pred_series = forecaster.predict(X=X, fh=fh)
@@ -428,86 +516,4 @@ def update_predict_loop(
 
 
 # Funções privadas
-def _tree_get_feat_df(
-    forecaster: RecursiveTabularRegressionForecaster,
-    df_columns: list[str],
-    estimator: str
-) -> pd.DataFrame:
-    """
-    Extrai importâncias dos do modelo e converte para 'DataFrame' legível.
-    Funciona para LGBM e Random Forest.
-    Essa função ficou uma bagunça. Já estou no final do TCC e não me importo tanto com beleza.
-    Daria para remover todas as subfunções.
-
-    Parameters
-    ----------
-
-    forecaster: RecursiveTabularRegressionForecaster
-        Forecaster gerado pelo `make_reduction`. Deve ser LGBM ou Random Forest.
-            
-    df_columns: list[str]
-        Lista de variáveis no 'DataFrame' usado para as previsões.
-        Retornado por `df.columns`.
-
-    estimator: {"lgbm", "random_forest"}
-        String indicando o estimador. Pode ser "lgbm" ou "random_forest".
-        
-    Returns
-    -------
-
-    pd.DataFrame:
-        'DataFrame' com índices representando cada variável e valor representando a %
-        de ganho que se deve àquela variável.
-    """
-    def extract_feature_names(cryptic_var_names, df_var_names) -> list[str]:
-        translated_feature_names = []
-        for name in cryptic_var_names:
-            _, n = name.split('_')
-            n = int(n)
-            translated_feature_names.append(f"{df_var_names[n % 41]}_{int(n / 41)}")
-        return translated_feature_names
-    
-
-    def get_feature_importance_dict(cryptic_feat_importances, feat_names):
-        return {name: importance for name, importance in zip(feat_names, cryptic_feat_importances)}
-    
-
-    def condense_feat_importances(var_names: list[str], feat_importances: dict[str, float]) -> pd.DataFrame:
-        # Cria dicionário com valor absoluto de importâncias para cada variável
-        # independente de lags
-        added_importances = {}
-        for feat in var_names:
-            added_importances[feat] = 0
-            for k, v in feat_importances.items():
-                if feat in k:
-                    added_importances[feat] += v
-        total = 0
-        for k, v in added_importances.items():
-            total += v
-
-        # Converte para dicionário de porcentagens
-        final_importances = {k: v / total for k, v in added_importances.items()}
-        final_importances = pd.DataFrame.from_dict(final_importances, orient='index')
-        final_importances.columns = ['values']
-        final_importances = final_importances.sort_values(by='values', ascending=False)
-        return final_importances
-    
-
-    if estimator == "lgbm":
-        cryptic_var_names = forecaster.estimator_.booster_.feature_name()
-        cryptic_feat_importances = forecaster.estimator_.booster_.feature_importance(importance_type='gain')
-
-    elif estimator == "random_forest":
-        cryptic_var_names = [f"var_{i}" for i in range(forecaster.estimator_.feature_importances_.size)]
-        cryptic_feat_importances = forecaster.estimator_.feature_importances_
-
-    translated_feat_names = extract_feature_names(cryptic_var_names, df_columns)
-    translated_feat_importances = get_feature_importance_dict(
-        cryptic_feat_importances,
-        translated_feat_names
-    )
-    return condense_feat_importances(
-        df_columns,
-        translated_feat_importances
-    )
 
