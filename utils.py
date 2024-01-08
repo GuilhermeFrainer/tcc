@@ -2,6 +2,7 @@
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import numpy as np
 import warnings
 # Imports específicos
 from sktime.param_est.stationarity import StationarityKPSS
@@ -189,7 +190,7 @@ def get_feat_df(
 
     elif estimator in {"lasso", "ridge"}:
         cryptic_var_names = [f"var_{i}" for i in range(forecaster.estimator_.coef_.size)]
-        cryptic_feat_importances = forecaster.estimator_.coef_
+        cryptic_feat_importances = np.abs(forecaster.estimator_.coef_)
 
     else:
         raise ValueError(f"Tipo de estimador inválido: {estimator}. Deve ser lgbm, random_forest, lasso ou ridge.")
