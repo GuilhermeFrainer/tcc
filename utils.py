@@ -404,6 +404,29 @@ def print_stationary_series(results: dict) -> None:
             print(k)
 
 
+def update_predict_loop(
+        forecaster: RecursiveTabularRegressionForecaster,
+        y: pd.Series,
+        X: pd.DataFrame,
+        fh: ForecastingHorizon,
+        starting_period: pd.Period = pd.Period('2017-02', freq='M')
+    ) -> pd.Series:
+    current_period = starting_period
+    last_period = y.index[-1]
+    pred_series = forecaster.predict(X=X, fh=fh)
+    current_period += 1
+    while current_period < last_period:
+        with warnings.catch_warnings():
+            # Suprime aviso que o forecaster resultante de redução não tem método "update"
+            # Não é importante no nosso caso
+            warnings.simplefilter("ignore", category=UserWarning)
+            forecaster.update(y.loc[[current_period]], X.loc[[current_period]])
+        new_pred = forecaster.predict(fh, X)
+        pred_series = pd.concat([pred_series, new_pred])
+        current_period += 1
+    return pred_series
+
+
 # Funções privadas
 def _tree_get_feat_df(
     forecaster: RecursiveTabularRegressionForecaster,
