@@ -10,6 +10,7 @@ from sktime.forecasting.model_evaluation import evaluate
 from sktime.split import temporal_train_test_split, ExpandingWindowSplitter
 from sktime.forecasting.base import ForecastingHorizon
 from sktime.forecasting.compose import RecursiveTabularRegressionForecaster
+from sklearn.preprocessing import StandardScaler
 
 
 def evaluate_pipeline(
@@ -491,6 +492,65 @@ def print_stationary_series(results: dict) -> None:
     for k, v in results.items():
         if v.stationary_:
             print(k)
+
+
+def run_model(
+    forecaster: RecursiveTabularRegressionForecaster,
+    estimator: str,
+    df: pd.DataFrame,
+    forecasting_horizon: int,
+    test_size: int = 79
+) -> pd.Series:
+    """
+    Roda o modelo para um horizonte específico.
+
+    Parameters
+    ----------
+    forecaster: RecursiveTabularRegressionForecaster
+        Forecaster retornado por `make_reduction`. Será modificado (fit) na função.
+
+    estimator: {"lgbm", "random_forest", "lasso", "ridge"}
+        Estimador escolhido.
+
+    df: pd.DataFrame
+        DataFrame com os dados usados para as previsões.
+
+    forecasting_horizon: int
+        Passo à frente a ser previsto. Gerará `ForecastingHorizon`.
+
+    test_size: int
+        Tamanho da amostra de testes.
+
+    Returns
+    -------
+    pd.Series
+        Série com previsões resultantes.
+    """
+    valid_estimators = {"lgbm", "random_forest", "lasso", "ridge"}
+    linear_models = {"lasso", "ridge"}
+    if estimator not in valid_estimators:
+        raise ValueError(f"Estimador inválido: {estimator}. Deve ser 'lgbm', 'random_forest', 'lasso', ou 'ridge'.")
+    
+    # Normaliza dados para modelos lineares
+    if estimator in linear_models:
+        scaler = StandardScaler()
+        normalized_data = scaler.fit_transform(df)
+        normalized_df = pd.DataFrame(normalized_data, columns=df.columns, index=df.index)
+        y = normalized_df['ipca']
+        X = normalized_df.drop(columns=['ipca'])
+    else:
+        y = df['ipca']
+        X = df.drop(columns=['ipca'])
+
+    y_train, _, X_train, _ = temporal_train_test_split(y, X, test_size=test_size)
+    fh = ForecastingHorizon(forecasting_horizon, is_relative=True)
+    forecaster.fit(y=y_train, X=X_train, fh=fh)
+    y_pred = update_predict_loop(forecaster, y, X, fh)
+    # Desnormaliza previsões para modelos lineares
+    if estimator in linear_models:
+        y_pred = y_pred * np.sqrt(scaler.var_[0]) + scaler.mean_[0]
+
+    return y_pred
 
 
 def update_predict_loop(
