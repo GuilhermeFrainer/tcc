@@ -567,6 +567,34 @@ def _refit_predict_loop(
     forecasting_horizon: int,
     starting_period: pd.Period = pd.Period('2017-03', freq='M')
 ) -> pd.Series:
+    """
+    Chama `reset`, `fit` e `predict` em loop, gradativamente alimentando o modelo.
+
+    Parameters
+    ----------
+    forecaster: RecursiveTabularRegressionForecaster
+        Forecaster retornado por `make_reduction`. Será modificado (fit) na função.
+
+    y: pd.Series
+        Série completa da variável endógena.
+
+    X: pd.DataFrame
+        Série completa das variáveis exógenas
+
+    fh: ForecastingHorizon
+        ForecastingHorizon gerado com 'forecasting_horizon' e 'is_relative=True'.
+
+    forecasting_horizon: int
+        Passo à frente a ser previsto.
+
+    starting_period: pd.Period, default = pd.Period('2017-03', freq='M')
+        Primeiro período a ser previsto.
+
+    Returns
+    -------
+    pd.Series
+        Série com previsões resultantes.
+    """
     current_period = starting_period
     target_period = starting_period + forecasting_horizon
     last_period = y.index[-1]
