@@ -545,36 +545,42 @@ def run_model(
     y_train, _, X_train, _ = temporal_train_test_split(y, X, test_size=test_size)
     fh = ForecastingHorizon(forecasting_horizon, is_relative=True)
     forecaster.fit(y=y_train, X=X_train, fh=fh)
-    y_pred = update_predict_loop(forecaster, y, X, fh)
+    y_pred = _refit_predict_loop(forecaster, y, X, fh, forecasting_horizon)
     # Desnormaliza previsões para modelos lineares
     if estimator in linear_models:
         y_pred = y_pred * np.sqrt(scaler.var_[0]) + scaler.mean_[0]
-
     return y_pred
 
 
-def update_predict_loop(
+####################
+#                  #
+# FUNÇÕES PRIVADAS #
+#                  #
+####################
+
+
+def _refit_predict_loop(
     forecaster: RecursiveTabularRegressionForecaster,
     y: pd.Series,
     X: pd.DataFrame,
     fh: ForecastingHorizon,
-    starting_period: pd.Period = pd.Period('2017-02', freq='M')
+    forecasting_horizon: int,
+    starting_period: pd.Period = pd.Period('2017-03', freq='M')
 ) -> pd.Series:
     current_period = starting_period
+    target_period = starting_period + forecasting_horizon
     last_period = y.index[-1]
     pred_series = forecaster.predict(X=X, fh=fh)
-    current_period += 1
-    while current_period < last_period:
+    while target_period <= last_period:
         with warnings.catch_warnings():
             # Suprime aviso que o forecaster resultante de redução não tem método "update"
             # Não é importante no nosso caso
             warnings.simplefilter("ignore", category=UserWarning)
-            forecaster.update(y.loc[[current_period]], X.loc[[current_period]])
+            forecaster.reset()
+            forecaster.fit(y.loc[:current_period], X.loc[:current_period], fh)
         new_pred = forecaster.predict(fh, X)
         pred_series = pd.concat([pred_series, new_pred])
         current_period += 1
+        target_period += 1
     return pred_series
-
-
-# Funções privadas
 
